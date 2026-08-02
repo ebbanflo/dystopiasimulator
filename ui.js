@@ -62,7 +62,8 @@ function renderSetup() {
   head.appendChild(el('h1', null, 'CONTINUITY OF GOVERNMENT'));
   head.appendChild(el('div', 'subtitle',
     'PROVISIONAL SURVIVAL RECORD // ' + CONFIG.START_YEAR +
-    ' // CASE ' + STATE.seed.toString(16).toUpperCase()));
+    ' // CASE ' + STATE.seed.toString(16).toUpperCase() +
+    ' // BUILD ' + CONFIG.BUILD));
   root.appendChild(head);
 
   const brief = el('div', 'panel');
@@ -457,7 +458,8 @@ function pipBar(value, max) {
  * ========================================================================= */
 function renderHeader() {
   $('header-date').textContent = dateString(STATE);
-  $('header-seed').textContent = 'CASE ' + STATE.seed.toString(16).toUpperCase();
+  $('header-seed').textContent =
+    CONFIG.BUILD + ' · CASE ' + STATE.seed.toString(16).toUpperCase();
 
   const p = STATE.player;
   const chips = $('header-chips');

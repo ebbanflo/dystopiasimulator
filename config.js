@@ -15,6 +15,14 @@
  * ========================================================================= */
 
 const CONFIG = {
+  /* ---- Build stamp -------------------------------------------------------
+   * Shown in the briefing header and the game header so it is always obvious
+   * which build is actually loaded. If this does not match the ?v= number on
+   * the script tags in index.html, the browser is serving cached assets.
+   * BUMP THIS AND THE ?v= VALUES TOGETHER whenever assets change.
+   * --------------------------------------------------------------------- */
+  BUILD: 'B2',
+
   /* ---- Time ---- */
   START_YEAR: 2051,
   WEEKS_PER_YEAR: 52,
