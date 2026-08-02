@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CONTINUITY OF GOVERNMENT — a survival record</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ======================= SETUP / BRIEFING SCREEN ======================= -->
+<div id="screen-setup" class="screen"></div>
+
+<!-- ============================ GAME SCREEN ============================= -->
+<div id="screen-game" class="screen hidden">
+
+  <header id="topbar">
+    <div class="topbar-left">
+      <span class="brand">CONTINUITY OF GOVERNMENT</span>
+      <span class="dim">// PROVISIONAL SURVIVAL RECORD</span>
+    </div>
+    <div class="topbar-right">
+      <span id="header-date" class="mono"></span>
+      <span id="header-seed" class="mono dim"></span>
+    </div>
+  </header>
+
+  <div id="layout">
+    <aside id="status" aria-label="Subject status"></aside>
+
+    <main id="content">
+      <nav id="tabs" aria-label="Sections"></nav>
+      <div id="main-panel"></div>
+    </main>
+
+    <aside id="logwrap" aria-label="Field log">
+      <div class="panel-title logtitle">FIELD LOG</div>
+      <div id="log"></div>
+    </aside>
+  </div>
+
+  <footer id="footer">
+    <span class="dim">NO SAVE STATE. NO WIN CONDITION. THE RECORD ENDS WHEN YOU DO.</span>
+  </footer>
+</div>
+
+<!-- Load order matters: constants, then RNG, then world, then systems, then UI. -->
+<script src="config.js"></script>
+<script src="rng.js"></script>
+<script src="factions.js"></script>
+<script src="npcs.js"></script>
+<script src="events.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
