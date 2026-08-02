@@ -503,271 +503,46 @@ function availableActions(state) {
 }
 
 /* =============================================================================
- * RANDOM WEEKLY INCIDENTS
+ * INCIDENT ENGINE
  *
- * Each has a weight, a condition, and either an automatic effect or a set of
- * choices. Choices BLOCK the next turn until resolved (see game.js).
+ * The incident content itself lives in incidents.js and the ambient world
+ * texture lives in flavor.js. This section only picks and assembles.
  * ========================================================================= */
-const INCIDENTS = [
-  {
-    id: 'ration_cut',
-    w: 10,
-    when: () => true,
-    title: 'RATION REVISION',
-    body: () => 'The allocation board revises the weekly draw downward. Everyone in ' +
-                'your block is short, and everyone in your block knows you have a job.',
-    choices: [
-      {
-        label: 'Share your draw',
-        outcome(state) {
-          addMoney(state, -RNG.int(150, 400));
-          addTerritory(state, RNG.chance(0.5) ? 1 : 0);
-          if (state.player.factionId) addRep(state, state.player.factionId, 2);
-          return ['You go short for a week. The block remembers it.'];
-        },
-      },
-      {
-        label: 'Keep it',
-        outcome(state) {
-          addMoney(state, RNG.int(80, 220));
-          if (state.player.factionId) addRep(state, state.player.factionId, -2);
-          return ['You eat. The stairwell goes quiet when you use it.'];
-        },
-      },
-      {
-        label: 'Sell the surplus at queue prices',
-        outcome(state) {
-          addMoney(state, RNG.int(300, 700));
-          addHeat(state, 8);
-          if (state.player.factionId) addRep(state, state.player.factionId, -4);
-          return ['Good money. Somebody films you doing it.'];
-        },
-      },
-    ],
-  },
 
-  {
-    id: 'approach',
-    w: 8,
-    when: (state) => !!state.player.factionId,
-    title: 'AN APPROACH',
-    body(state) {
-      const others = Object.values(state.factions).filter(f =>
-        f.id !== state.player.factionId && !f.defunct);
-      const f = RNG.pick(others);
-      state._incidentFaction = f.id;
-      return `A ${f.def.name} intermediary finds you outside the depot. They are ` +
-             `not recruiting. They want one small thing, and they are willing to pay.`;
-    },
-    choices: [
-      {
-        label: 'Take the money and do it',
-        outcome(state) {
-          const f = state.factions[state._incidentFaction];
-          const pay = RNG.int(600, 1800);
-          addMoney(state, pay);
-          addRep(state, f.id, RNG.int(4, 8));
-          f.playerDebt += 1;
-          addRep(state, state.player.factionId, -RNG.int(2, 6));
-          state.factions[state.player.factionId].playerHostility += 6;
-          return [`${pay}cr, and ${f.def.short} owes you a favor. Your own people suspect something.`];
-        },
-      },
-      {
-        label: 'Refuse and report it',
-        outcome(state) {
-          const f = state.factions[state._incidentFaction];
-          addRep(state, state.player.factionId, RNG.int(3, 7));
-          addRep(state, f.id, -RNG.int(3, 8));
-          f.playerHostility = clamp(f.playerHostility + 12, 0, 100);
-          return [`You hand the name to your own security. ${f.def.short} will not forget.`];
-        },
-      },
-      { label: 'Walk away without answering', outcome: () => ['You keep walking. Nothing changes, which is its own choice.'] },
-    ],
-  },
-
-  {
-    id: 'shakedown',
-    w: 7,
-    when: (state) => state.player.money > 800,
-    title: 'SHAKEDOWN',
-    body: () => 'Four people you half-recognize are waiting at your door with a ' +
-                'number in mind.',
-    choices: [
-      {
-        label: 'Pay',
-        outcome(state) {
-          const amt = Math.min(state.player.money, RNG.int(400, 1400));
-          addMoney(state, -amt);
-          return [`You pay ${amt}cr. They will come back. Everyone knows they will come back.`];
-        },
-      },
-      {
-        label: 'Fight',
-        outcome(state) {
-          if (RNG.chance(0.45 + state.player.territory * 0.01)) {
-            addTerritory(state, 1);
-            return ['Your people arrive first. The street watches. +1 territory.'];
-          }
-          addMoney(state, -RNG.int(200, 700));
-          addTerritory(state, state.player.territory > 0 ? -1 : 0);
-          if (RNG.chance(0.06)) {
-            killPlayer(state, 'beaten to death in a stairwell over eleven hundred credits');
-            return ['It goes badly.'];
-          }
-          return ['It goes badly. You lose money, standing on the block, and a tooth.'];
-        },
-      },
-    ],
-  },
-
-  {
-    id: 'blackout',
-    w: 6,
-    when: () => true,
-    title: 'CORRIDOR BLACKOUT',
-    body: () => 'The grid drops for nine days. Pumps stop. Stacks warm. The relays go silent ' +
-                'and rumor fills the gap.',
-    auto(state) {
-      const loss = RNG.int(100, 500);
-      addMoney(state, -loss);
-      for (const f of Object.values(state.factions)) {
-        if (f.defunct) continue;
-        f.unrestPressure = clamp(f.unrestPressure + RNG.int(4, 12), 0, 100);
-      }
-      return [`Nine dark days. ${loss}cr of spoilage and bought water. Unrest climbs everywhere.`];
-    },
-  },
-
-  {
-    id: 'audit',
-    w: 5,
-    when: (state) => state.player.heat > 30,
-    title: 'FILE REVIEW',
-    body: () => 'Someone has pulled your file and read all of it.',
-    auto(state) {
-      if (RNG.chance(0.4)) {
-        const fine = RNG.int(300, 1200);
-        addMoney(state, -fine);
-        addHeat(state, -10);
-        return [`A fine of ${fine}cr closes the review. Cheaper than the alternative.`];
-      }
-      addHeat(state, 10);
-      return ['The review stays open. Two names in it are yours.'];
-    },
-  },
-
-  {
-    id: 'rival_move',
-    w: 6,
-    when: (state) => state.npcs.some(n => n.alive && n.isRival && n.factionId === state.player.factionId),
-    title: 'THE RIVAL MOVES',
-    body(state) {
-      const rival = state.npcs.find(n => n.alive && n.isRival && n.factionId === state.player.factionId);
-      state._incidentNPC = rival ? rival.id : null;
-      return rival
-        ? `${rival.name}, who holds the seat you once did, has spent the week ` +
-          `talking about you in rooms you are not invited to.`
-        : 'A rival moves against you.';
-    },
-    choices: [
-      {
-        label: 'Answer it politically',
-        outcome(state) {
-          const rival = npcById(state, state._incidentNPC);
-          if (!rival) return ['The moment passes.'];
-          if (RNG.chance(clamp(0.45 + repWith(state, state.player.factionId) * 0.003, 0.1, 0.85))) {
-            addRep(state, state.player.factionId, 4);
-            rival.grudge = clamp(rival.grudge + 5, 0, 100);
-            return [`You answer ${rival.name} in open session and win the room. +4 standing.`];
-          }
-          addRep(state, state.player.factionId, -5);
-          rival.grudge = clamp(rival.grudge + 8, 0, 100);
-          return [`${rival.name} was better prepared. -5 standing.`];
-        },
-      },
-      {
-        label: 'Ignore it',
-        outcome(state) {
-          const rival = npcById(state, state._incidentNPC);
-          if (rival) rival.grudge = clamp(rival.grudge + 12, 0, 100);
-          addRep(state, state.player.factionId, -2);
-          return ['You let it stand. It hardens into fact by the weekend.'];
-        },
-      },
-    ],
-  },
-
-  {
-    id: 'flood',
-    w: 4,
-    when: () => true,
-    title: 'INTRUSION EVENT',
-    body: () => 'Saltwater comes up through the substructure again. The maps are ' +
-                'twenty years out of date and nobody is redrawing them.',
-    auto(state) {
-      if (state.player.territory > 0 && RNG.chance(0.5)) {
-        const lost = Math.min(state.player.territory, RNG.int(1, 3));
-        addTerritory(state, -lost);
-        return [`Two of your wards are under a meter of brine. -${lost} territory.`];
-      }
-      const cost = RNG.int(100, 400);
-      addMoney(state, -cost);
-      return [`Pumping and filtration cost you ${cost}cr this week.`];
-    },
-  },
-
-  {
-    id: 'quiet',
-    w: 12,
-    when: () => true,
-    title: 'NOTHING IN PARTICULAR',
-    body: () => 'A week passes. The queues move. Someone is shot at the checkpoint ' +
-                'and it is not you and nobody writes it down.',
-    auto: () => ['No incident of record.'],
-  },
-
-  {
-    id: 'opportunity',
-    w: 5,
-    when: (state) => !!state.player.factionId && state.player.rankIndex >= 2,
-    title: 'A SEAT COMES OPEN',
-    body: () => 'A vacancy above you has appeared without your help, and there is ' +
-                'a short window in which it can be spoken for.',
-    choices: [
-      {
-        label: 'Move on it hard',
-        outcome(state) {
-          const p = state.player;
-          const odds = clamp(0.35 + repWith(state, p.factionId) * 0.004, 0.1, 0.8);
-          addMoney(state, -Math.min(state.player.money, 800));
-          if (RNG.chance(odds) && p.rankIndex < RANK_COUNT - 1) {
-            p.rankIndex += 1;
-            addTerritory(state, 2);
-            return [`You are confirmed as ${playerRankTitle(state)}. +2 territory.`];
-          }
-          addRep(state, p.factionId, -4);
-          return ['Someone with better patronage takes it. -4 standing, and 800cr of favors wasted.'];
-        },
-      },
-      {
-        label: 'Back someone else and bank the favor',
-        outcome(state) {
-          const p = state.player;
-          addRep(state, p.factionId, RNG.int(3, 6));
-          state.factions[p.factionId].playerDebt += 2;
-          return ['You put your weight behind a colleague. They remember. For now.'];
-        },
-      },
-    ],
-  },
-];
-
+/* Choose one incident for the week, respecting each entry's `when` gate. */
 function rollIncident(state) {
   const pool = INCIDENTS.filter(i => {
     try { return i.when(state); } catch (e) { return false; }
   });
   if (!pool.length) return null;
-  return RNG.weighted(pool.map(i => Object.assign({ w: i.w }, { inc: i }))).inc;
+  return RNG.weighted(pool.map(i => ({ w: i.w, inc: i }))).inc;
+}
+
+/* Turn a chosen incident into the concrete thing the UI renders.
+ * Returns either { quiet: true, title, lines } for a world-texture week,
+ * { auto: true, title, body, lines } for a self-resolving event, or
+ * { title, body, choices } for one that blocks the turn on a decision. */
+function buildIncident(state, inc) {
+  /* A quiet week: no decision, no mechanical effect, just the world existing. */
+  if (inc.quiet) {
+    return {
+      quiet: true,
+      title: RNG.pick(QUIET_TITLES),
+      lines: drawAmbient(state),
+    };
+  }
+
+  const body = typeof inc.body === 'function' ? inc.body(state) : inc.body;
+
+  if (inc.auto) {
+    return { auto: true, title: inc.title, body: body, lines: inc.auto(state) };
+  }
+
+  /* Bonus options are rolled per presentation, so the menu is never assumed. */
+  return {
+    id: inc.id,
+    title: inc.title,
+    body: body,
+    choices: withBonusChoices(state, inc.choices),
+  };
 }

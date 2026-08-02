@@ -13,7 +13,10 @@
 <meta name="apple-mobile-web-app-title" content="CONTINUITY">
 <meta name="color-scheme" content="dark">
 <title>CONTINUITY OF GOVERNMENT</title>
-<link rel="stylesheet" href="style.css">
+<!-- Assets carry a ?v= stamp so a stale browser/CDN cache cannot serve an old
+     build of the CSS or JS against a new index.html. Bump these together with
+     CONFIG.BUILD in config.js whenever any asset changes. -->
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -45,6 +48,12 @@
     </div>
   </header>
 
+  <!-- ---- FIGURE BAR: the player, acting out whatever was just committed ---- -->
+  <section id="scenebar" aria-hidden="true">
+    <canvas id="scene"></canvas>
+    <div id="scene-caption" class="scene-caption"></div>
+  </section>
+
   <!-- ---- FIELD LOG: pinned under the header, types itself out weekly ---- -->
   <section id="logstrip" aria-label="Field log">
     <div class="logstrip-head">
@@ -65,12 +74,16 @@
 </div>
 
 <!-- Load order matters: constants, RNG, world, systems, then UI. -->
-<script src="config.js"></script>
-<script src="rng.js"></script>
-<script src="factions.js"></script>
-<script src="npcs.js"></script>
-<script src="events.js"></script>
-<script src="game.js"></script>
-<script src="ui.js"></script>
+<script src="config.js?v=3"></script>
+<script src="rng.js?v=3"></script>
+<script src="factions.js?v=3"></script>
+<script src="npcs.js?v=3"></script>
+<script src="flavor.js?v=3"></script>
+<script src="incidents.js?v=3"></script>
+<script src="events.js?v=3"></script>
+<script src="threats.js?v=3"></script>
+<script src="game.js?v=3"></script>
+<script src="scene.js?v=3"></script>
+<script src="ui.js?v=3"></script>
 </body>
 </html>
