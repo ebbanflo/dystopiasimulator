@@ -2,49 +2,69 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CONTINUITY OF GOVERNMENT — a survival record</title>
+<!-- Mobile-first, screen-locked: viewport-fit + no user zoom so the shell
+     behaves like an installed app rather than a scrolling document. -->
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="CONTINUITY">
+<meta name="color-scheme" content="dark">
+<title>CONTINUITY OF GOVERNMENT</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ======================= SETUP / BRIEFING SCREEN ======================= -->
+<!-- ===================== SETUP / BRIEFING (own scroller) ===================== -->
 <div id="screen-setup" class="screen"></div>
 
-<!-- ============================ GAME SCREEN ============================= -->
+<!-- ============================== GAME SHELL ============================== -->
 <div id="screen-game" class="screen hidden">
 
+  <!-- ---- FIXED HEADER: identity, week, and the single COMMIT control ---- -->
   <header id="topbar">
-    <div class="topbar-left">
-      <span class="brand">CONTINUITY OF GOVERNMENT</span>
-      <span class="dim">// PROVISIONAL SURVIVAL RECORD</span>
+    <div class="topbar-row">
+      <span class="brand">CONTINUITY<span class="brand-dim">/GOV</span></span>
+      <span id="header-seed" class="mono micro dim"></span>
     </div>
-    <div class="topbar-right">
-      <span id="header-date" class="mono"></span>
-      <span id="header-seed" class="mono dim"></span>
+
+    <div class="topbar-row">
+      <span id="header-date" class="mono week-readout"></span>
+      <span id="header-chips" class="chips"></span>
+    </div>
+
+    <!-- The staged order. Nothing resolves until COMMIT is pressed. -->
+    <div id="commitbar" class="commitbar">
+      <div id="staged" class="staged">
+        <span class="staged-caret">&gt;</span>
+        <span id="staged-label" class="staged-label">NO ORDER SET</span>
+      </div>
+      <button id="commit-btn" class="commit-btn" disabled>COMMIT</button>
     </div>
   </header>
 
-  <div id="layout">
-    <aside id="status" aria-label="Subject status"></aside>
+  <!-- ---- FIELD LOG: pinned under the header, types itself out weekly ---- -->
+  <section id="logstrip" aria-label="Field log">
+    <div class="logstrip-head">
+      <span class="micro dim">FIELD LOG</span>
+      <span id="log-status" class="micro dim">STANDBY</span>
+    </div>
+    <div id="log" role="log" aria-live="polite"></div>
+    <button id="log-skip" class="log-skip hidden">TAP TO SKIP TRANSMISSION</button>
+  </section>
 
-    <main id="content">
-      <nav id="tabs" aria-label="Sections"></nav>
-      <div id="main-panel"></div>
-    </main>
+  <!-- ---- SCROLLING CONTENT: one tab at a time ---- -->
+  <main id="content">
+    <div id="main-panel"></div>
+  </main>
 
-    <aside id="logwrap" aria-label="Field log">
-      <div class="panel-title logtitle">FIELD LOG</div>
-      <div id="log"></div>
-    </aside>
-  </div>
-
-  <footer id="footer">
-    <span class="dim">NO SAVE STATE. NO WIN CONDITION. THE RECORD ENDS WHEN YOU DO.</span>
-  </footer>
+  <!-- ---- BOTTOM TAB BAR (thumb reach) ---- -->
+  <nav id="tabbar" aria-label="Sections"></nav>
 </div>
 
-<!-- Load order matters: constants, then RNG, then world, then systems, then UI. -->
+<!-- Load order matters: constants, RNG, world, systems, then UI. -->
 <script src="config.js"></script>
 <script src="rng.js"></script>
 <script src="factions.js"></script>
