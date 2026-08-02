@@ -45,6 +45,35 @@ function svgEl(tag, attrs) {
 
 function crestOf(faction) { return faction.def.crest; }
 
+/* Per-faction accent colour. Player-founded factions cycle through spares. */
+const FACTION_COLORS = {
+  concord:  '#7ea6c4',   // steel blue — water
+  marshals: '#d09a4a',   // amber — energy
+  greenline:'#79b479',   // green — food
+  remnant:  '#a482c4',   // violet — the paper state
+};
+const PLAYER_FACTION_COLORS = ['#d8d8d8', '#6fb5b8', '#c9a227', '#c25a52', '#8fa8d8'];
+
+function factionColor(f) {
+  if (FACTION_COLORS[f.id]) return FACTION_COLORS[f.id];
+  const n = parseInt((f.id.match(/(\d+)$/) || [0, 1])[1], 10) || 1;
+  return PLAYER_FACTION_COLORS[(n - 1) % PLAYER_FACTION_COLORS.length];
+}
+
+/* Keep the figure bar's world state in sync with the player's situation. */
+function syncScene() {
+  const p = STATE.player;
+  const f = p.factionId ? STATE.factions[p.factionId] : null;
+  Scene.setWorld({
+    sector: p.sector || 'water',
+    regionName: (REGIONS.find(r => r.id === p.regionId) || {}).name || '',
+    crest: f ? f.def.crest : '',
+    rankLabel: f ? f.def.rankTitles[p.rankIndex].toUpperCase() : 'UNAFFILIATED',
+    held: p.imprisonedWeeks > 0,
+    alive: p.alive,
+  });
+}
+
 function reducedMotion() {
   return window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -322,15 +351,34 @@ function commit() {
   const order = UI.staged;
   UI.staged = null;
 
+  let res = null;
   if (order.kind === 'incident') {
     resolveIncidentChoice(STATE, order.payload);
   } else if (order.kind === 'wait') {
     takeAction(STATE, '__wait__');
   } else {
-    const res = takeAction(STATE, order.id, order.payload);
+    res = takeAction(STATE, order.id, order.payload);
     /* An action that could not be afforded does not consume the week. */
     if (res && res.noTurn) { render(); typeNewLog(); return; }
   }
+
+  /* --- Drive the figure bar: act out the order, then the week's fallout --- */
+  Scene.clear();
+  if (order.kind === 'incident') {
+    Scene.play('incident', { caption: order.label, accent: 'neutral' });
+  } else if (order.kind !== 'wait') {
+    const beat = sceneBeatFor(order.id, !!(res && res.ok));
+    Scene.play(beat.anim, { caption: order.label, accent: beat.accent });
+  }
+  syncScene();
+  if (STATE.weekFlags.promoted) Scene.play('promote', { caption: 'ELEVATED', accent: 'legit' });
+  if (STATE.weekFlags.attacked) Scene.play('attacked', { caption: 'ATTEMPT ON YOUR LIFE', accent: 'danger' });
+  if (STATE.weekFlags.jailed) Scene.play('jailed', { caption: 'TAKEN INTO CUSTODY', accent: 'danger' });
+  if (STATE.weekFlags.quiet) Scene.play('quiet', { caption: 'AN ORDINARY WEEK', accent: 'neutral' });
+  if (STATE.pendingIncident) {
+    Scene.play('incident', { caption: 'INCIDENT — ' + STATE.pendingIncident.title, accent: 'neutral' });
+  }
+  if (!STATE.player.alive) Scene.play('death', { caption: 'RECORD CLOSED', accent: 'danger' });
 
   const after = snapshot();
   UI.lastDelta = {
@@ -382,7 +430,9 @@ function repMeter(faction, value, delta) {
   const wrap = el('div', 'meter rep-meter');
   const top = el('div', 'meter-top');
   const lbl = el('span', 'meter-label');
-  lbl.appendChild(el('span', 'crest', crestOf(faction)));
+  const cr = el('span', 'crest', crestOf(faction));
+  cr.style.color = factionColor(faction);
+  lbl.appendChild(cr);
   lbl.appendChild(document.createTextNode(' ' + faction.def.short));
   if (delta) {
     lbl.appendChild(el('span', 'delta', (delta > 0 ? '▲+' : '▼') + delta));
@@ -444,6 +494,59 @@ function sparkline(values, captionLeft, captionRight) {
   cap.appendChild(el('span', null, captionLeft));
   cap.appendChild(el('span', null, captionRight));
   wrap.appendChild(cap);
+  return wrap;
+}
+
+/* Stacked control diagram: one row per region, segmented by faction share.
+ * This is the "who actually holds what" picture the numbers never gave. */
+function controlDiagram(state) {
+  const wrap = el('div', 'diagram');
+  for (const r of REGIONS) {
+    const row = el('div', 'diagram-row');
+    const label = el('div', 'diagram-label', r.name);
+    if (r.id === state.player.regionId) label.classList.add('home');
+    row.appendChild(label);
+
+    const track = el('div', 'diagram-track');
+    let held = 0;
+    for (const f of Object.values(state.factions)) {
+      if (f.defunct) continue;
+      const share = f.control[r.id] || 0;
+      if (share <= 0) continue;
+      held += share;
+      const seg = el('div', 'diagram-seg');
+      seg.style.width = share + '%';
+      seg.style.background = factionColor(f);
+      seg.title = f.def.name + ' — ' + share;
+      seg.textContent = share >= 14 ? f.def.crest : '';
+      track.appendChild(seg);
+    }
+    if (held < 100) {
+      const seg = el('div', 'diagram-seg unaligned');
+      seg.style.width = (100 - held) + '%';
+      seg.title = 'Unaligned — ' + (100 - held);
+      track.appendChild(seg);
+    }
+    row.appendChild(track);
+    wrap.appendChild(row);
+  }
+
+  const key = el('div', 'diagram-key');
+  for (const f of Object.values(state.factions)) {
+    if (f.defunct) continue;
+    const k = el('span', 'key-item');
+    const dot = el('span', 'key-dot');
+    dot.style.background = factionColor(f);
+    k.appendChild(dot);
+    k.appendChild(document.createTextNode(f.def.crest + ' ' + f.def.short));
+    key.appendChild(k);
+  }
+  const k = el('span', 'key-item');
+  const dot = el('span', 'key-dot unaligned');
+  k.appendChild(dot);
+  k.appendChild(document.createTextNode('UNALIGNED'));
+  key.appendChild(k);
+  wrap.appendChild(key);
   return wrap;
 }
 
@@ -546,10 +649,13 @@ function renderOps() {
     box.appendChild(el('p', 'body', inc.body));
     const list = el('div', 'action-list');
     inc.choices.forEach((c, i) => {
-      const b = el('button', 'action-btn' +
+      const b = el('button', 'action-btn' + (c.bonus ? ' bonus' : '') +
         (UI.staged && UI.staged.kind === 'incident' && UI.staged.payload === i ? ' selected' : ''));
       const head = el('div', 'action-head');
       head.appendChild(el('span', 'action-label', c.label));
+      /* Bonus options are rolled per presentation — flag them so the player
+       * knows this angle was not guaranteed to be here. */
+      if (c.bonus) head.appendChild(el('span', 'action-cost bonus-tag', '✦ OPPORTUNITY'));
       b.appendChild(head);
       b.addEventListener('click', () => stage('incident', 'incident', i, c.label.toUpperCase()));
       list.appendChild(b);
@@ -862,10 +968,16 @@ function renderFactions() {
   const root = $('main-panel');
   const p = STATE.player;
 
+  /* Who holds what, at a glance. */
+  const map = el('div', 'panel');
+  map.appendChild(el('div', 'panel-title', '▦ TERRITORIAL CONTROL'));
+  map.appendChild(controlDiagram(STATE));
+  root.appendChild(map);
+
   /* Comparative power graph across all live factions. */
   if (STATE.trend.length > 1) {
     const box = el('div', 'panel');
-    box.appendChild(el('div', 'panel-title', 'BALANCE OF POWER'));
+    box.appendChild(el('div', 'panel-title', '◈ BALANCE OF POWER'));
     for (const f of Object.values(STATE.factions)) {
       if (f.defunct) continue;
       const row = el('div', 'kv');
@@ -886,8 +998,12 @@ function renderFactions() {
 
   for (const f of Object.values(STATE.factions)) {
     const box = el('div', 'panel faction-card' + (f.defunct ? ' defunct' : ''));
+    box.style.borderLeftColor = factionColor(f);
     const head = el('div', 'faction-head');
-    head.appendChild(el('span', 'crest big', crestOf(f)));
+    const bigCrest = el('span', 'crest big', crestOf(f));
+    bigCrest.style.color = factionColor(f);
+    bigCrest.style.borderColor = factionColor(f);
+    head.appendChild(bigCrest);
     const namewrap = el('div', 'faction-names');
     namewrap.appendChild(el('div', 'faction-name', f.def.name));
     namewrap.appendChild(el('div', 'faction-creed', '"' + f.def.creed + '"'));
@@ -1053,6 +1169,7 @@ function render() {
  * BOOT
  * ========================================================================= */
 window.addEventListener('DOMContentLoaded', () => {
+  Scene.init($('scene'), $('scene-caption'));
   $('commit-btn').addEventListener('click', commit);
   $('log-skip').addEventListener('click', revealAllLog);
   $('log').addEventListener('click', () => { if (UI.typing) revealAllLog(); });

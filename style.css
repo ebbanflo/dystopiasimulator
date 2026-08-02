@@ -24,12 +24,26 @@
   --g8:  #d4d4d4;   /* body text */
   --g9:  #ffffff;   /* emphasis */
 
+  /* ---- ACCENTS -----------------------------------------------------------
+   * The base of the interface stays greyscale. Colour is used ONLY to
+   * differentiate sections and categories, at low saturation so it reads as
+   * a tinted terminal rather than a dashboard. One hue per meaning:
+   * ---------------------------------------------------------------------- */
+  --a-work:    #7ea6c4;   /* subsistence — steel */
+  --a-legit:   #79b479;   /* legitimate — green */
+  --a-corrupt: #c25a52;   /* corrupt — red */
+  --a-faction: #6fb5b8;   /* affiliation — cyan */
+  --a-special: #a482c4;   /* schism — violet */
+  --a-warn:    #d09a4a;   /* heat, custody, alarm — amber */
+  --a-bonus:   #d8c05a;   /* randomly-offered opportunity — gold */
+
   --mono: ui-monospace, "SFMono-Regular", "DejaVu Sans Mono",
           "Liberation Mono", Menlo, Consolas, monospace;
 
   /* Fixed shell metrics, referenced by the grid below. */
   --tabbar-h: 56px;
-  --log-h: 27vh;
+  --log-h: 24vh;
+  --scene-h: 92px;      /* read by scene.js — the figure bar's fixed height */
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -157,8 +171,31 @@ body::before {
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: auto var(--log-h) minmax(0, 1fr) auto;
+  grid-template-rows: auto auto var(--log-h) minmax(0, 1fr) auto;
   overflow: hidden;
+}
+
+/* ----------------------------- FIGURE BAR -------------------------------- */
+#scenebar {
+  position: relative;
+  background: #0c0c0e;
+  border-bottom: 1px solid var(--g4);
+  line-height: 0;
+}
+#scene { display: block; width: 100%; }
+.scene-caption {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  line-height: 1.2;
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  color: var(--g8);
+  padding: 3px 10px 5px;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ------------------------------- HEADER --------------------------------- */
@@ -181,7 +218,10 @@ body::before {
   font-size: 15px;
   letter-spacing: 2px;
   color: var(--g9);
+  white-space: nowrap;   /* never let the date break across two lines */
+  flex: 0 0 auto;
 }
+.chips { flex: 1 1 auto; min-width: 0; }
 .week-readout.tick { animation: weektick 420ms ease both; }
 @keyframes weektick {
   0%   { opacity: 0; transform: translateY(-6px); filter: blur(2px); }
@@ -198,7 +238,8 @@ body::before {
   white-space: nowrap;
 }
 .chip.invert { background: var(--g9); color: var(--g0); border-color: var(--g9); }
-.chip.warn   { border-style: dotted; color: var(--g9); }
+.chip.warn   { border-style: dotted; color: var(--a-warn); border-color: var(--a-warn); }
+.chip.money  { color: var(--g9); }
 
 /* ---- COMMIT BAR: the staged order + the one button that resolves it ---- */
 .commitbar {
@@ -303,15 +344,20 @@ body::before {
   white-space: pre-wrap;
   word-break: break-word;
 }
-/* Kind is expressed as luminance + rule weight, never hue. */
+/* Kind is carried by luminance and rule weight, with a low-saturation tint
+ * so the eye can sort the week's lines at a glance. */
 .log-action   { color: var(--g9); border-left-color: var(--g9); font-weight: 700; }
-.log-good     { color: var(--g8); border-left-color: var(--g6); }
-.log-bad      { color: var(--g8); border-left-style: dotted; border-left-color: var(--g9); }
-.log-warn     { color: var(--g9); border-left-style: dashed; border-left-color: var(--g6); }
-.log-incident { color: var(--g8); border-left-color: var(--g5); }
+.log-good     { color: #cfe0c8; border-left-color: var(--a-legit); }
+.log-bad      { color: #e6c4c0; border-left-style: dotted; border-left-color: var(--a-corrupt); }
+.log-warn     { color: #e8d3ac; border-left-style: dashed; border-left-color: var(--a-warn); }
+.log-incident { color: var(--g8); border-left-color: var(--g6); }
+.log-threat   { color: #f0b8b2; border-left-color: var(--a-corrupt); border-left-width: 3px; font-weight: 700; }
 .log-ai       { color: var(--g6); }
-.log-econ     { color: var(--g7); border-left-color: var(--g4); }
+.log-econ     { color: #b6c9d6; border-left-color: var(--a-work); }
 .log-sys      { color: var(--g6); letter-spacing: 1px; }
+/* Ambient world texture: deliberately recessive — it is scenery, not signal. */
+.log-flavor   { color: var(--g6); font-style: italic; border-left-color: transparent; }
+.log-quiet    { color: var(--g7); letter-spacing: 2px; font-size: 10px; }
 
 /* The typing caret that trails the character reveal. */
 .log-line.typing::after {
@@ -446,34 +492,35 @@ body::before {
   width: 1px; background: var(--g6); z-index: 4;
 }
 
-/* Fill treatments — texture, not colour. */
+/* Fill treatments — an accent hue AND a texture, so each meter is legible
+ * by pattern alone if the colour is not perceivable. */
 .money-fill { background: var(--g9); }
 .terr-fill  {
-  background-color: var(--g7);
+  background-color: var(--a-work);
   background-image: repeating-linear-gradient(
     90deg, rgba(0,0,0,0.55) 0 2px, transparent 2px 5px);
 }
 .heat-fill  {
-  background-color: var(--g8);
+  background-color: var(--a-warn);
   background-image: repeating-linear-gradient(
     45deg, rgba(0,0,0,0.6) 0 3px, transparent 3px 6px);
 }
 .power-fill { background: var(--g9); }
 .corr-fill  {
-  background-color: var(--g6);
+  background-color: var(--a-special);
   background-image: repeating-linear-gradient(
-    -45deg, rgba(255,255,255,0.5) 0 2px, transparent 2px 5px);
+    -45deg, rgba(255,255,255,0.45) 0 2px, transparent 2px 5px);
 }
 .mil-fill   {
-  background-color: var(--g7);
+  background-color: var(--a-corrupt);
   background-image: repeating-linear-gradient(
-    90deg, rgba(255,255,255,0.45) 0 1px, transparent 1px 4px);
+    90deg, rgba(255,255,255,0.4) 0 1px, transparent 1px 4px);
 }
-.good-fill  { background: var(--g9); }
+.good-fill  { background: var(--a-legit); }
 .bad-fill   {
   background-color: var(--g5);
   background-image: repeating-linear-gradient(
-    45deg, var(--g8) 0 2px, transparent 2px 5px);
+    45deg, var(--a-corrupt) 0 2px, transparent 2px 5px);
 }
 
 /* Flash a meter when its value changed this week. */
@@ -563,12 +610,25 @@ body::before {
 .action-desc  { font-size: 11.5px; margin-top: 3px; }
 .action-hint  { font-size: 10.5px; color: var(--g6); margin-top: 4px; }
 
-/* Category edge treatment: weight and dash pattern, no hue. */
-.action-btn.cat-corrupt { border-left-style: dotted; border-left-color: var(--g9); }
-.action-btn.cat-legit   { border-left-color: var(--g8); }
-.action-btn.cat-special { border-left-style: double; border-left-width: 4px; border-left-color: var(--g9); }
-.action-btn.cat-faction { border-left-style: dashed; border-left-color: var(--g7); }
-.action-btn.cat-work    { border-left-color: var(--g5); }
+/* Category edge treatment: one accent hue per category, plus the dash pattern
+ * so the distinction survives greyscale displays and colour-blind viewing. */
+.action-btn.cat-corrupt { border-left-style: dotted; border-left-color: var(--a-corrupt); }
+.action-btn.cat-legit   { border-left-color: var(--a-legit); }
+.action-btn.cat-special { border-left-style: double; border-left-width: 4px; border-left-color: var(--a-special); }
+.action-btn.cat-faction { border-left-style: dashed; border-left-color: var(--a-faction); }
+.action-btn.cat-work    { border-left-color: var(--a-work); }
+
+.cat-header::before { content: "▸ "; }
+
+/* A bonus option that was rolled into this menu and might not be here again. */
+.action-btn.bonus {
+  border-left-color: var(--a-bonus);
+  border-left-style: double;
+  border-left-width: 4px;
+  background: linear-gradient(90deg, rgba(216,192,90,0.08), transparent 60%);
+}
+.bonus-tag { color: var(--a-bonus) !important; letter-spacing: 1px; }
+.action-btn.bonus.selected { background: var(--g9); }
 
 .primary-btn {
   display: block;
@@ -647,11 +707,42 @@ body::before {
 .faction-creed { color: var(--g6); font-size: 10.5px; font-style: italic; }
 .faction-flags { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; margin-top: 4px; }
 .flag { font-size: 9px; letter-spacing: 1px; border: 1px solid var(--g5); padding: 1px 4px; color: var(--g7); }
-.flag.good { background: var(--g9); color: var(--g0); border-color: var(--g9); }
-.flag.bad  { border-style: dotted; color: var(--g9); }
+.flag.good { background: var(--a-legit); color: var(--g0); border-color: var(--a-legit); }
+.flag.bad  { border-style: dotted; color: var(--a-corrupt); border-color: var(--a-corrupt); }
 
 .control-grid { display: grid; grid-template-columns: 1fr; gap: 0 14px; margin: 8px 0; }
 .rule-tag { color: var(--g6); letter-spacing: 1px; margin-top: 5px; border-top: 1px dotted var(--g4); padding-top: 4px; }
+
+/* ------------------------ CONTROL DIAGRAM (stacked) ---------------------- */
+.diagram { margin-top: 4px; }
+.diagram-row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; margin-bottom: 5px; }
+.diagram-label { font-size: 9px; letter-spacing: 1px; color: var(--g6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diagram-label.home { color: var(--g9); font-weight: 700; }
+.diagram-label.home::after { content: " ◂"; }
+.diagram-track {
+  display: flex;
+  height: 14px;
+  border: 1px solid var(--g4);
+  background: var(--g0);
+  overflow: hidden;
+}
+.diagram-seg {
+  height: 100%;
+  font-size: 8px;
+  line-height: 14px;
+  text-align: center;
+  color: rgba(0,0,0,0.75);
+  transition: width 500ms cubic-bezier(.2,.8,.2,1);
+  overflow: hidden;
+}
+.diagram-seg.unaligned {
+  background-color: var(--g3);
+  background-image: repeating-linear-gradient(45deg, var(--g4) 0 2px, transparent 2px 5px);
+}
+.diagram-key { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 7px; font-size: 9px; color: var(--g6); letter-spacing: 1px; }
+.key-item { display: inline-flex; align-items: center; gap: 4px; }
+.key-dot { width: 8px; height: 8px; display: inline-block; border: 1px solid var(--g4); }
+.key-dot.unaligned { background-image: repeating-linear-gradient(45deg, var(--g5) 0 2px, transparent 2px 4px); }
 
 /* -------------------------------- HIERARCHY ------------------------------ */
 .rank-row {
@@ -679,13 +770,15 @@ body::before {
 
   #screen-game {
     grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "top  top"
-      "main log"
-      "tabs tabs";
+      "top   top"
+      "scene log"
+      "main  log"
+      "tabs  tabs";
   }
   #topbar   { grid-area: top; }
+  #scenebar { grid-area: scene; }
   #logstrip { grid-area: log; border-left: 1px solid var(--g4); border-bottom: none; }
   #content  { grid-area: main; padding: 16px; }
   #tabbar   { grid-area: tabs; grid-auto-columns: minmax(0, 160px); justify-content: center; }
@@ -700,8 +793,13 @@ body::before {
 
 /* Landscape phones: the log would eat the screen, so shrink it. */
 @media (max-height: 520px) and (orientation: landscape) {
-  :root { --log-h: 34vh; --tabbar-h: 44px; }
+  :root { --log-h: 30vh; --tabbar-h: 44px; --scene-h: 64px; }
   .tab .tab-glyph { display: none; }
+}
+
+/* Very short viewports: the figure bar is the first thing to give ground. */
+@media (max-height: 680px) {
+  :root { --scene-h: 78px; --log-h: 22vh; }
 }
 
 /* =============================================================================

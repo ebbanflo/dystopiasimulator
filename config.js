@@ -21,7 +21,7 @@ const CONFIG = {
    * the script tags in index.html, the browser is serving cached assets.
    * BUMP THIS AND THE ?v= VALUES TOGETHER whenever assets change.
    * --------------------------------------------------------------------- */
-  BUILD: 'B2',
+  BUILD: 'B3',
 
   /* ---- Time ---- */
   START_YEAR: 2051,
@@ -85,6 +85,31 @@ const CONFIG = {
   ASSASSINATION_MIN_CHANCE: 0.06,
   ASSASSINATION_MAX_CHANCE: 0.88,
   ASSASSINATION_HEAT: 26,
+
+  /* ---- ATTEMPTS ON THE PLAYER'S LIFE (threats.js) -----------------------
+   * The world hits back. Every week, three separate sources roll to see
+   * whether somebody moves against the player:
+   *   1. NPC GRUDGE  — anyone you bribed, blackmailed, or failed to kill
+   *   2. FACTION      — a faction whose hostility toward you is high
+   *   3. RANK ENVY    — subordinates who want the seat you are sitting in
+   * Each attempt then resolves on its own survival roll.
+   * --------------------------------------------------------------------- */
+  THREAT_GRUDGE_MIN: 35,          // NPC grudge below this never acts
+  THREAT_GRUDGE_SCALE: 0.0016,    // weekly attempt chance per point of grudge
+  THREAT_FACTION_MIN_HOSTILITY: 45,
+  THREAT_FACTION_SCALE: 0.0013,   // weekly attempt chance per point of hostility
+  THREAT_RANK_ENVY_BASE: 0.004,   // per rank index, per week, once rank >= 2
+  THREAT_HEAT_SCALE: 0.0009,      // heat makes you easier to find
+  THREAT_MAX_WEEKLY_CHANCE: 0.30, // cap on any single source per week
+
+  /* Surviving an attempt: base odds, improved by territory (bodyguards) and
+   * money (better doors), worsened by the attacker's rank and your heat. */
+  THREAT_SURVIVE_BASE: 0.58,
+  THREAT_SURVIVE_PER_TERRITORY: 0.009,
+  THREAT_SURVIVE_PER_10K: 0.05,
+  THREAT_SURVIVE_RANK_PENALTY: 0.05,
+  THREAT_SURVIVE_MIN: 0.12,
+  THREAT_SURVIVE_MAX: 0.94,
 
   /* ---- Relevance / soft loss (the non-death ending) ---- */
   IRRELEVANCE_WEEKS: 26,          // weeks spent with no faction, no territory,

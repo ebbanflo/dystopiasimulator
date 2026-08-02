@@ -27,6 +27,8 @@ const STATE = {
   gameOverReason: null,
   player: null,
   trend: [],            // per-week snapshot, drives the sparkline graphics in ui.js
+  /* Set during a week's resolution, read by the UI to pick scene animations. */
+  weekFlags: { attacked: false, jailed: false, promoted: false, quiet: false },
   playerFactionCount: 0,
   _incidentFaction: null,
   _incidentNPC: null,
@@ -108,6 +110,7 @@ function newGame(seed) {
   STATE.started = false;
   STATE.playerFactionCount = 0;
   STATE.trend = [];
+  STATE.weekFlags = { attacked: false, jailed: false, promoted: false, quiet: false };
 
   /* Starting region is assigned randomly; sector choice is then constrained
    * by what that region actually runs (feature 2). */
@@ -821,11 +824,18 @@ function recordTrend(state) {
 function advanceWeek(state) {
   if (state.gameOver) return;
   const p = state.player;
+  const rankBefore = p.rankIndex;
+  state.weekFlags = { attacked: false, jailed: false, promoted: false, quiet: false };
 
   logAll(state, economyTick(state), 'econ');
   if (state.gameOver) return;
 
   logAll(state, heatTick(state), 'warn');
+
+  /* THE WORLD HITS BACK — grudges, faction sanctions, and the people directly
+   * below you all roll to see whether somebody moves against you this week. */
+  logAll(state, threatTick(state), 'threat');
+  if (state.gameOver) return;
 
   const world = { factions: state.factions, regions: state.regions, player: p, state: state };
   const aiLines = runFactionAI(world);
@@ -842,14 +852,30 @@ function advanceWeek(state) {
   /* Incident roll — may block the next turn on a choice. */
   const inc = rollIncident(state);
   if (inc) {
-    const body = typeof inc.body === 'function' ? inc.body(state) : inc.body;
-    if (inc.choices) {
-      state.pendingIncident = { id: inc.id, title: inc.title, body: body, choices: inc.choices };
+    const built = buildIncident(state, inc);
+    if (built.quiet) {
+      /* A week where nothing happens still has to read like somewhere real. */
+      state.weekFlags.quiet = true;
+      log(state, built.title, 'quiet');
+      logAll(state, built.lines, 'flavor');
+    } else if (built.auto) {
+      log(state, built.title + ': ' + built.body, 'incident');
+      logAll(state, built.lines, 'incident');
     } else {
-      log(state, `${inc.title}: ${body}`, 'incident');
-      logAll(state, inc.auto(state), 'incident');
+      state.pendingIncident = built;
     }
   }
+
+  /* Ambient pressure signal on weeks where nothing came for you — yet. */
+  if (!state.weekFlags.attacked) {
+    const warn = threatWarning(state);
+    if (warn) log(state, warn, 'threat');
+  }
+
+  if (p.rankIndex !== null && rankBefore !== null && p.rankIndex > rankBefore) {
+    state.weekFlags.promoted = true;
+  }
+  if (p.imprisonedWeeks > 0) state.weekFlags.jailed = true;
 
   recordTrend(state);
   state.week++;
@@ -903,7 +929,7 @@ function resolveIncidentChoice(state, index) {
   const inc = state.pendingIncident;
   log(state, `${inc.title}: ${inc.body}`, 'incident');
   const choice = inc.choices[index];
-  log(state, `>> ${choice.label}`, 'action');
+  log(state, '>> ' + choice.label + (choice.bonus ? '  [OPPORTUNITY]' : ''), 'action');
   const lines = choice.outcome(state) || [];
   logAll(state, lines, 'incident');
   state.pendingIncident = null;
