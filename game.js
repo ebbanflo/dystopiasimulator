@@ -26,6 +26,7 @@ const STATE = {
   gameOver: false,
   gameOverReason: null,
   player: null,
+  trend: [],            // per-week snapshot, drives the sparkline graphics in ui.js
   playerFactionCount: 0,
   _incidentFaction: null,
   _incidentNPC: null,
@@ -34,8 +35,17 @@ const STATE = {
 /* ---------------------------------------------------------------------------
  * LOGGING
  * ------------------------------------------------------------------------- */
+/* Every entry carries a monotonically increasing `seq`. The UI tracks the last
+ * seq it has revealed, so trimming the head of the array below cannot desync
+ * the typewriter the way a plain index would. */
 function log(state, text, kind) {
-  state.log.push({ week: state.week, kind: kind || 'plain', text: text });
+  state._logSeq = (state._logSeq || 0) + 1;
+  state.log.push({
+    seq: state._logSeq,
+    week: state.week,
+    kind: kind || 'plain',
+    text: text,
+  });
   if (state.log.length > 400) state.log.splice(0, state.log.length - 400);
 }
 
@@ -91,11 +101,13 @@ function newGame(seed) {
   STATE.npcs = generateAllNPCs(STATE.factions);
   STATE.history = generateProceduralHistory(STATE.factions, REGIONS, 8);
   STATE.log = [];
+  STATE._logSeq = 0;
   STATE.pendingIncident = null;
   STATE.gameOver = false;
   STATE.gameOverReason = null;
   STATE.started = false;
   STATE.playerFactionCount = 0;
+  STATE.trend = [];
 
   /* Starting region is assigned randomly; sector choice is then constrained
    * by what that region actually runs (feature 2). */
@@ -135,6 +147,7 @@ function startGame(sectorId) {
   log(STATE, `CASE FILE ${STATE.seed.toString(16).toUpperCase()} OPENED.`, 'sys');
   log(STATE, `Subject registered in ${region.name} as ${SECTORS[sectorId].jobTitle.toLowerCase()}.`, 'sys');
   log(STATE, 'No affiliation. No holdings. No standing. Week 1.', 'sys');
+  recordTrend(STATE);
   return STATE;
 }
 
@@ -787,6 +800,23 @@ function relevanceTick(state) {
   return [];
 }
 
+/* Record one row of the trend table. Read by the sparkline widgets in ui.js;
+ * capped so a very long run cannot grow memory without bound. */
+function recordTrend(state) {
+  const p = state.player;
+  const powers = {};
+  for (const f of Object.values(state.factions)) powers[f.id] = f.defunct ? 0 : f.power;
+  state.trend.push({
+    week: state.week,
+    money: p.money,
+    territory: p.territory,
+    heat: p.heat,
+    rep: p.factionId ? (p.reputation[p.factionId] || 0) : 0,
+    powers: powers,
+  });
+  if (state.trend.length > 260) state.trend.shift();
+}
+
 /* Advance one week. Called after the player's action resolves. */
 function advanceWeek(state) {
   if (state.gameOver) return;
@@ -821,6 +851,7 @@ function advanceWeek(state) {
     }
   }
 
+  recordTrend(state);
   state.week++;
 
   if (p.imprisonedWeeks > 0) {
